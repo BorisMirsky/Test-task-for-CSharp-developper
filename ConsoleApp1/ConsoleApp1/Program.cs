@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Diagnostics.Metrics;
 
 
-
 namespace ConsoleApp1
 {
     class Program
@@ -18,7 +17,6 @@ namespace ConsoleApp1
 
         static void MyMethod(string[] args)
         {
-
             int h = 0;
             try
             {
@@ -46,7 +44,7 @@ namespace ConsoleApp1
             {   
                 for (int j = 0; j < w; j++)
                 {
-                    string k = alphabet[j] + i.ToString();   // key 
+                    string k = alphabet[j] + i.ToString();   // key for dictionary
                     
                     // '`' string 
                     if (args[2..][counter][0] == '`')
@@ -76,11 +74,21 @@ namespace ConsoleApp1
                         counter += 1;
                 }
             }
-
-            foreach (KeyValuePair<string, object> entry in dict_result)
+            
+            // 2й проход по словарю - вычисление выражений '='
+            foreach (object value in dict_result.Values)
             {
-                Debug.WriteLine($"Key: {entry.Key}, Value: {entry.Value}");
+                if (value is string && ((string)value)[0] == '=')
+                {
+                    Debug.WriteLine(value);
+                }
             }
+
+
+            //foreach (KeyValuePair<string, object> entry in dict_result)
+            //{
+            //    Debug.WriteLine($"Key: {entry.Key}, Value: {entry.Value}");
+            //}
         }
     }
 }
