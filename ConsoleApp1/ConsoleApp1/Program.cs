@@ -14,6 +14,7 @@ namespace ConsoleApp1
             MyMethod(args); 
         }
 
+        static Dictionary<string, object> dict_result = new Dictionary<string, object>();
 
         static void MyMethod(string[] args)
         {
@@ -38,8 +39,7 @@ namespace ConsoleApp1
             }
 
             string[] alphabet = "A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z".Split(",")[0..w];
-            Dictionary<string, object> dict_result = new Dictionary<string, object>();
-            int counter = 0;                             // сквозной счетчик
+            int counter = 0;        // сквозной счетчик
             for (int i = 1; i < (h + 1); i++)
             {   
                 for (int j = 0; j < w; j++)
@@ -74,21 +74,117 @@ namespace ConsoleApp1
                         counter += 1;
                 }
             }
-            
-            // 2й проход по словарю - вычисление выражений '='
-            foreach (object value in dict_result.Values)
+
+            // Вычисление всех выражений
+            var expressionCells = dict_result
+                .Where(kv => kv.Value is string s && s.StartsWith("="))
+                .Select(kv => kv.Key)
+                .ToList();
+            foreach (var cell in expressionCells)
             {
-                if (value is string && ((string)value)[0] == '=')
-                {
-                    Debug.WriteLine(value);
-                }
+                EvaluateCell(cell);
             }
 
+            foreach (KeyValuePair<string, object> entry in dict_result)
+            {
+                Debug.WriteLine($"Key = {entry.Key}, Value = {entry.Value}");
+            }
+        }
 
-            //foreach (KeyValuePair<string, object> entry in dict_result)
-            //{
-            //    Debug.WriteLine($"Key: {entry.Key}, Value: {entry.Value}");
-            //}
+
+        // Рекурсивное вычисление значения ячейки
+        static int EvaluateCell(string cell)
+        {
+            object value = dict_result[cell];
+            if (value is int)
+                return (int)value;
+            if (value is string s)
+            {
+                if (s.StartsWith("="))
+                {
+                    string expr = s.Substring(1);
+                    var (operands, ops) = ParseExpression(expr);
+                    int result = GetOperandValue(operands[0]);
+                    for (int i = 0; i < ops.Count; i++)
+                    {
+                        int next = GetOperandValue(operands[i + 1]);
+                        switch (ops[i])
+                        {
+                            case '+': result += next; break;
+                            case '-': result -= next; break;
+                            case '*': result *= next; break;
+                            case '/': result /= next; break;
+                        }
+                    }
+                    dict_result[cell] = result; // сохраняем результат
+                    return result;
+                }
+                else
+                {
+                    throw new InvalidOperationException($"Cell {cell} contains a string, cannot be used in expression");
+                }
+            }
+            throw new InvalidOperationException($"Cell {cell} has invalid type");
+        }
+
+        // Получение числового значения операнда (числа или ссылки)
+        static int GetOperandValue(object operand)
+        {
+            if (operand is int num)
+                return num;
+            else if (operand is string refCell)
+                return EvaluateCell(refCell);
+            else
+                throw new InvalidOperationException("Invalid operand");
+        }
+
+
+        // Парсинг выражения в список операндов и операторов
+        static (List<object> operands, List<char> ops) ParseExpression(string expr)
+        {
+            List<object> operands = new List<object>();
+            List<char> ops = new List<char>();
+            int i = 0;
+            int len = expr.Length;
+            HashSet<char> opSet = new HashSet<char> { '+', '-', '*', '/' };
+
+            while (i < len)
+            {
+                char c = expr[i];
+                if (char.IsDigit(c))
+                {
+                    int start = i;
+                    while (i < len && char.IsDigit(expr[i]))
+                        i++;
+                    int num = int.Parse(expr.Substring(start, i - start));
+                    operands.Add(num);
+                    if (i < len && !opSet.Contains(expr[i]))
+                        ops.Add('*'); // неявное умножение
+                }
+                else if (char.IsLetter(c) && c >= 'A' && c <= 'Z')
+                {
+                    char letter = c;
+                    i++;
+                    int start = i;
+                    while (i < len && char.IsDigit(expr[i]))
+                        i++;
+                    string cellRef = letter + expr.Substring(start, i - start);
+                    operands.Add(cellRef);
+                    if (i < len && !opSet.Contains(expr[i]))
+                        ops.Add('*'); // неявное умножение
+                }
+                else if (opSet.Contains(c))
+                {
+                    ops.Add(c);
+                    i++;
+                }
+                else
+                {
+                    // Неизвестный символ (не должен встречаться) – пропускаем
+                    i++;
+                }
+            }
+            return (operands, ops);
         }
     }
 }
