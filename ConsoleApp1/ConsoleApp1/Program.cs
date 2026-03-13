@@ -1,15 +1,7 @@
 ﻿using Microsoft.Data.Sqlite;
-using System;
-using System;
 using System.Collections.Generic;
-using System.Collections.Generic;
-using System.ComponentModel.Design;
 using System.Data;
 using System.Diagnostics;
-using System.Diagnostics.Metrics;
-using System.Xml.Linq;
-//using System.Data.SQLite;
-
 
 
 
@@ -17,9 +9,6 @@ namespace ConsoleApp1
 {
     class Program
     {
-
-        //static readonly string[] args = ["3", "4", "12", "=C2", "3", "`Sample", "=A1+B1C1/5", "=A2B1", "=B3-C3", "`Spread", "`Test", "=4-3", "5", "`Sheet"];
-
         static void Main(string[] args)
         {
             args = ["3", "4", "12", "=C2", "3", "`Sample", "=A1+B1C1/5", "=A2B1", "=B3-C3", "`Spread", "`Test", "=4-3", "5", "`Sheet"];
@@ -34,8 +23,8 @@ namespace ConsoleApp1
 
         readonly static string connectionString = $"Data Source=C:\\Users\\Alexander\\source\\.Net\\Test-task-for-CSharp-developper\\ConsoleApp1\\ConsoleApp1\\Database\\{dbName}";
 
-        //readonly static string alphabet = "A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z"; //.Split(",")[0..w];
-        
+        readonly static string[] alphabet = "A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z".Split(",");
+
         static void MyMethod(string[] args)
         {
             int h = 0;
@@ -58,16 +47,14 @@ namespace ConsoleApp1
                 Debug.WriteLine("The string is not in a valid format.");
             }
 
-            //string[] alphabetSlice = alphabet.Split(",")[0..w];
-            string[] alphabet = "A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z".Split(",")[0..w];
-            //string[] alphabetSlice = alphabet.Split(",")[0..w];
-            int counter = 0;        // сквозной счетчик
+            string[] alphabetSlice = alphabet[0..w];
+            int counter = 0;       
 
             for (int i = 1; i < (h + 1); i++)
             {
                 for (int j = 0; j < w; j++)
                 {
-                    string k = alphabet[j] + i.ToString();   // key for dictionary
+                    string k = alphabetSlice[j] + i.ToString();   // key for dictionary
 
                     // '`' string 
                     if (args[2..][counter][0] == '`')
@@ -108,10 +95,10 @@ namespace ConsoleApp1
                 EvaluateCell(cell);
             }
 
-            foreach (KeyValuePair<string, object> entry in dict_result)
-            {
-                Debug.WriteLine($"Key = {entry.Key}, Value = {entry.Value}");
-            }
+            //foreach (KeyValuePair<string, object> entry in dict_result)
+            //{
+            //    Debug.WriteLine($"{entry.Key}: {entry.Value}");
+            //}
         }
 
 
@@ -154,11 +141,11 @@ namespace ConsoleApp1
             catch(KeyNotFoundException e)
             {
                 dict_result[cell] = "#Error";
-                Debug.WriteLine(e);
+                //Debug.WriteLine(e);
             }
-            //return result;
             throw new InvalidOperationException($"Cell {cell} has invalid type");
         }
+
 
         // Получение числового значения операнда (числа или ссылки)
         static int GetOperandValue(object operand)
@@ -220,6 +207,7 @@ namespace ConsoleApp1
             return (operands, ops);
         }
       
+
         static void CreateDB(Dictionary<string, object> d, string[] a)
         {
             try
@@ -227,9 +215,8 @@ namespace ConsoleApp1
                 using (var connection = new SqliteConnection(connectionString))
                 {
                     connection.Open();
-                    Debug.WriteLine($"{dbName} created or opened successfully.");
                     CreateTable(connection, a);
-                    InsertData(connection, dict_result);
+                    InsertData(connection, dict_result, a);
                 }
             }
             catch (Exception ex)
@@ -238,12 +225,12 @@ namespace ConsoleApp1
             }
         }
 
+
         static void CreateTable(SqliteConnection connection, string[] a)
         {
-            string[] alphabet = "A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z".Split(",");
             string createTableQuery = @"
-                    CREATE TABLE IF NOT EXISTS Cells (
-                        Id INTEGER PRIMARY KEY AUTOINCREMENT,";
+                    CREATE TABLE IF NOT EXISTS Cells (";
+                        //Id INTEGER PRIMARY KEY AUTOINCREMENT,";
             for (int i = 0; i < int.Parse(a[1]); i++)
             {
                 string addColumn = $"{alphabet[i]} TEXT NOT NULL,";
@@ -257,27 +244,55 @@ namespace ConsoleApp1
             }
         }
 
-        static void InsertData(SqliteConnection connection, Dictionary<string, object> d)   //, string[] cols)
+
+        static void InsertData(SqliteConnection connection, Dictionary<string, object> d, string[] a)
         {
-            //"INSERT INTO Users (Name, Age) VALUES ('Alice', 32), ('Bob', 28)";
-            string sqlExpression = "INSERT INTO Cells (ColumnsNames) VALUES (CellsValues)";
-            foreach (KeyValuePair<string, object> entry in dict_result)
+            string cols = "";
+            for (int i = 0; i < int.Parse(a[1]); i++)
             {
-                //Console.WriteLine($"Key = {entry.Key}, Value = {entry.Value}");
-
+                cols += $"{alphabet[i]},";
             }
-
-
+            cols = cols.TrimEnd(',', ' ');
+            //
+            var columns = d.Keys
+                    .Select(key => key[0].ToString())
+                    .Distinct()
+                    .OrderBy(c => c) 
+                    .ToList();
+            var rowNumbers = d.Keys
+                    .Select(key => key.Substring(1))
+                    .Distinct()
+                    .ToList();
+            var rowsValues = new List<string>();
+            foreach (var rowNum in rowNumbers)
+            {
+                var rowValues = new List<string>();
+                foreach (var col in columns)
+                {
+                    string key = col + rowNum;
+                    if (d.TryGetValue(key, out object value))
+                    {
+                        string stringValue = value is string s ? s : value.ToString();
+                        rowValues.Add('"' + stringValue + '"');
+                    }
+                    else
+                    {
+                        rowValues.Add("NULL");
+                    }
+                }
+                rowsValues.Add($"({string.Join(",", rowValues)})");
+            }
+            string valuesPart = string.Join(", ", rowsValues);
+            string sqlExpression = $"INSERT INTO Cells ({cols}) VALUES {valuesPart}";
+            //Debug.WriteLine(sqlExpression);
             using (connection)
             {
                 connection.Open();
-
                 SqliteCommand command = new SqliteCommand(sqlExpression, connection);
-
                 int number = command.ExecuteNonQuery();
-
-                //Console.WriteLine($"В таблицу Users добавлено объектов: {number}");
+                //Debug.WriteLine($"В таблицу добавлено объектов: {number}");
             }
+
         }
     }
 }
